@@ -1,4 +1,6 @@
-# Granit-Ural AIS
+# granitdiplom
+
+## Granit-Ural AIS
 
 Centralized Flask/PostgreSQL web application for order intake, stock reservation, warehouse distribution, and audit visibility inside the Granit-Ural operating model.
 
