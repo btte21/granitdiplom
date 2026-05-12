@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Warehouse | Granit-Ural AIS{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-xl-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h1 class="h4 mb-1">Warehouse Shipping Tasks</h1>
+                <p class="text-secondary small mb-0">Picking and packing work queue for warehouse execution.</p>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Assignee</th>
+                                <th>Next Step</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td>#{{ task.order_number }}</td>
+                                <td>{{ task.customer_name }}</td>
+                                <td><span class="badge text-bg-light">{{ task.status }}</span></td>
+                                <td>{{ task.priority }}</td>
+                                <td>{{ task.assigned_to_name or 'Unassigned' }}</td>
+                                <td>
+                                    {% if task.status not in ('COMPLETED', 'CANCELLED') %}
+                                    <form method="post" action="{{ url_for('ui.update_order_status', order_id=task.order_id) }}" class="d-flex gap-2">
+                                        <select class="form-select form-select-sm" name="status">
+                                            {% if task.status == 'PENDING' %}
+                                            <option value="PROCESSING">PROCESSING</option>
+                                            <option value="CANCELLED">CANCELLED</option>
+                                            {% elif task.status == 'PICKING' %}
+                                            <option value="READY_TO_SHIP">READY_TO_SHIP</option>
+                                            <option value="CANCELLED">CANCELLED</option>
+                                            {% elif task.status == 'PACKED' %}
+                                            <option value="SHIPPED">SHIPPED</option>
+                                            <option value="CANCELLED">CANCELLED</option>
+                                            {% endif %}
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+                                    </form>
+                                    {% else %}
+                                    <span class="text-secondary small">No action required</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6" class="text-secondary">No active warehouse tasks.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h5 mb-1">Low Stock Focus</h2>
+                <p class="text-secondary small mb-0">SKUs that may need replenishment or manager attention.</p>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <div class="vstack gap-3">
+                    {% for product in products if product.available_qty <= 5 %}
+                    <div class="order-snippet rounded-4 p-3">
+                        <div class="fw-semibold">{{ product.sku }}</div>
+                        <div>{{ product.name }}</div>
+                        <div class="small text-secondary mt-1">Available: {{ product.available_qty }} | Reserved: {{ product.reserved_qty }}</div>
+                    </div>
+                    {% else %}
+                    <div class="text-secondary">No low stock alerts.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

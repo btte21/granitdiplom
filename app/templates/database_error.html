@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Database Error | Granit-Ural AIS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4 p-lg-5">
+                <h1 class="h3 mb-3">PostgreSQL Connection Required</h1>
+                <p class="text-secondary">{{ error_message }}</p>
+                <div class="small text-secondary">
+                    <div>Recommended next steps:</div>
+                    <div>1. Create a local `.env` file from `.env.example`.</div>
+                    <div>2. Set `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` for your PostgreSQL instance.</div>
+                    <div>3. Make sure the `granit_ural_ais` database exists and run the SQL scripts in `sql/` from pgAdmin 4.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

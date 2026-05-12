@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Products | Granit-Ural AIS{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-4 px-4">
+        <h1 class="h4 mb-1">Product and Warehouse Stock</h1>
+        <p class="text-secondary small mb-0">Real-time availability across the catalog with reserved balance visibility.</p>
+    </div>
+    <div class="card-body px-4 pb-4">
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Product</th>
+                        <th>Technical Specs</th>
+                        <th>On Hand</th>
+                        <th>Reserved</th>
+                        <th>Available</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product.sku }}</td>
+                        <td>{{ product.name }}</td>
+                        <td><code>{{ product.technical_specs }}</code></td>
+                        <td>{{ product.on_hand_qty }}</td>
+                        <td>{{ product.reserved_qty }}</td>
+                        <td>
+                            <span class="badge {% if product.available_qty <= 5 %}text-bg-warning{% else %}text-bg-success{% endif %}">
+                                {{ product.available_qty }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-secondary">No products available.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Orders | Granit-Ural AIS{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-xl-5">
+        {% if current_user.role in ('ADMIN', 'MANAGER') %}
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h1 class="h4 mb-1">New Order</h1>
+                <p class="text-secondary small mb-0">Create an order and reserve stock instantly to prevent overselling.</p>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <form method="post" action="{{ url_for('ui.create_order') }}" class="vstack gap-3" id="order-form">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="order_number">Order Number</label>
+                            <input class="form-control" id="order_number" name="order_number" placeholder="GU-2026-001" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="priority">Priority</label>
+                            <select class="form-select" id="priority" name="priority">
+                                {% for value in range(1, 6) %}
+                                <option value="{{ value }}" {% if value == 3 %}selected{% endif %}>{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="customer_name">Customer Name</label>
+                            <input class="form-control" id="customer_name" name="customer_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="customer_email">Customer Email</label>
+                            <input class="form-control" id="customer_email" name="customer_email" type="email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="customer_phone">Customer Phone</label>
+                            <input class="form-control" id="customer_phone" name="customer_phone" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="notes">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-7">
+                            <label class="form-label" for="product_selector">Product</label>
+                            <select class="form-select" id="product_selector">
+                                {% for product in products %}
+                                <option value="{{ product.id }}" data-name="{{ product.name }}" data-available="{{ product.available_qty }}">
+                                    {{ product.sku }} | {{ product.name }} | Available: {{ product.available_qty }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="item_quantity">Quantity</label>
+                            <input class="form-control" id="item_quantity" type="number" min="1" value="1">
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button type="button" class="btn btn-outline-primary" id="add-item-btn">Add</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Items to Reserve</label>
+                        <div id="order-items-list" class="vstack gap-2 small text-secondary">
+                            <div class="empty-state">No items added yet.</div>
+                        </div>
+                        <input type="hidden" name="items_json" id="items_json" value="[]">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Create Order</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h4 mb-2">Order Intake Restricted</h1>
+                <p class="text-secondary mb-0">Warehouse users can monitor the order register here, but only managers and administrators can create new orders or change priorities.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-xl-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h2 class="h4 mb-1">Order Register</h2>
+                <p class="text-secondary small mb-0">Current order statuses, priorities, and customer commitments.</p>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in orders %}
+                            <tr>
+                                <td>#{{ order.order_number }}</td>
+                                <td>{{ order.customer_name }}</td>
+                                <td><span class="badge text-bg-light">{{ order.status }}</span></td>
+                                <td>{{ order.priority }}</td>
+                                <td>{{ order.created_at }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-secondary">No orders found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
