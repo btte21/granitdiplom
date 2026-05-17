@@ -23,11 +23,11 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/granit_ural_ais
       - APP_PORT=5005
       - FLASK_DEBUG=1
-      # Yandex Market placeholders
-      - YANDEX_MARKET_API_KEY=your-api-key
-      - YANDEX_MARKET_CAMPAIGN_ID=your-campaign
-      - YANDEX_MARKET_BUSINESS_ID=your-business
-      - YANDEX_MARKET_WAREHOUSE_ID=1
+      # Yandex Market API (values are pulled from your .env file)
+      - YANDEX_MARKET_API_KEY=${YANDEX_MARKET_API_KEY:-your-api-key}
+      - YANDEX_MARKET_CAMPAIGN_ID=${YANDEX_MARKET_CAMPAIGN_ID:-your-campaign}
+      - YANDEX_MARKET_BUSINESS_ID=${YANDEX_MARKET_BUSINESS_ID:-your-business}
+      - YANDEX_MARKET_WAREHOUSE_ID=${YANDEX_MARKET_WAREHOUSE_ID:-1}
     depends_on:
       db:
         condition: service_healthy

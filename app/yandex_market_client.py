@@ -11,13 +11,14 @@ class YandexMarketClient:
     BASE_URL = "https://api.partner.market.yandex.ru/v2"
 
     def __init__(self, api_key: str, campaign_id: str, business_id: Optional[str] = None):
-        self.api_key = api_key
-        self.campaign_id = campaign_id
-        self.business_id = business_id
+        self.api_key = api_key.strip() if api_key else ""
+        self.campaign_id = campaign_id.strip() if campaign_id else ""
+        self.business_id = business_id.strip() if business_id else None
         self.session = requests.Session()
         self.session.headers.update({
-            "Api-Key": self.api_key,
+            "Authorization": f"Api-Key {self.api_key}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
         })
 
     def _request(self, method: str, path: str, json: Optional[Dict[str, Any]] = None, params: Optional[Dict[str, Any]] = None, retries: int = 3) -> Dict[str, Any]:
@@ -38,12 +39,31 @@ class YandexMarketClient:
                     time.sleep(2 ** attempt)
                     continue
 
-                response.raise_for_status()
+                if not response.ok:
+                    error_detail = ""
+                    try:
+                        error_data = response.json()
+                        error_detail = f" - {error_data}"
+                    except Exception:
+                        error_detail = f" - {response.text}"
+
+                    if response.status_code == 423:
+                        logger.error(f"Error 423 (Locked): The method cannot be used for this store. Check Campaign ID and Store status.{error_detail}")
+
+                    response.raise_for_status()
+
                 return response.json()
 
             except RequestException as e:
                 if attempt == retries - 1:
-                    logger.error(f"Request failed after {retries} attempts: {e}")
+                    # Try to get more info from the response if it exists
+                    msg = str(e)
+                    if e.response is not None:
+                        try:
+                            msg = f"{e} - {e.response.json()}"
+                        except Exception:
+                            msg = f"{e} - {e.response.text}"
+                    logger.error(f"Request failed after {retries} attempts: {msg}")
                     raise
                 logger.warning(f"Request failed: {e}. Retrying... (Attempt {attempt + 1}/{retries})")
                 time.sleep(2 ** attempt)
