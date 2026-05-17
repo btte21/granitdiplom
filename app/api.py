@@ -3,8 +3,11 @@ from decimal import Decimal
 
 from flask import Blueprint, jsonify, request
 
+from flask import current_app
 from .security import current_user, get_repository, login_required, roles_required
 from .services import InsufficientStockError, InvalidStatusTransitionError, ValidationError
+from .yandex_market_client import YandexMarketClient
+from .yandex_market_service import YandexMarketService
 
 
 api_bp = Blueprint("api", __name__)
@@ -89,3 +92,28 @@ def api_tasks():
         }
         )
     )
+
+
+@api_bp.post("/yandex-market/sync")
+@roles_required("ADMIN")
+def api_yandex_sync():
+    config = current_app.config
+    token = config.get("YANDEX_MARKET_TOKEN")
+    campaign_id = config.get("YANDEX_MARKET_CAMPAIGN_ID")
+
+    if not token or not campaign_id:
+        return jsonify({"error": "Yandex Market API not configured"}), 400
+
+    client = YandexMarketClient(token=token, campaign_id=campaign_id)
+    service = YandexMarketService(client=client, repository=get_repository())
+
+    try:
+        stocks_res = service.sync_stocks(warehouse_id=1) # Default warehouse
+        prices_res = service.sync_prices()
+        return jsonify({
+            "message": "Sync completed",
+            "stocks_results": stocks_res,
+            "prices_results": prices_res
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
