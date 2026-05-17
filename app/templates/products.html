@@ -67,7 +67,14 @@ document.getElementById('syncYandexBtn').addEventListener('click', async functio
         });
         const data = await response.json();
         if (response.ok) {
-            alert('Успех: ' + data.message);
+            let details = data.message;
+            if (data.orders_results) {
+                details += `\nЗаказов обработано: ${data.orders_results.fetched}\nСоздано: ${data.orders_results.created}\nПропущено: ${data.orders_results.skipped}`;
+                if (data.orders_results.errors > 0) {
+                    details += `\nОшибок: ${data.orders_results.errors}`;
+                }
+            }
+            alert('Успех: ' + details);
         } else {
             alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
         }

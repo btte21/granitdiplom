@@ -24,7 +24,7 @@ services:
       - APP_PORT=5005
       - FLASK_DEBUG=1
       # Yandex Market placeholders
-      - YANDEX_MARKET_TOKEN=your-token
+      - YANDEX_MARKET_API_KEY=your-api-key
       - YANDEX_MARKET_CAMPAIGN_ID=your-campaign
       - YANDEX_MARKET_BUSINESS_ID=your-business
       - YANDEX_MARKET_WAREHOUSE_ID=1

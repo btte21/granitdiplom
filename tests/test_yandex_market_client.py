@@ -4,7 +4,7 @@ from app.yandex_market_client import YandexMarketClient
 
 class TestYandexMarketClient(unittest.TestCase):
     def setUp(self):
-        self.client = YandexMarketClient(token="test-token", campaign_id="test-campaign")
+        self.client = YandexMarketClient(api_key="test-api-key", campaign_id="test-campaign")
 
     @patch("app.yandex_market_client.requests.Session.request")
     def test_update_stocks_success(self, mock_request):

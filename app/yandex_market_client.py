@@ -10,13 +10,13 @@ logger = logging.getLogger(__name__)
 class YandexMarketClient:
     BASE_URL = "https://api.partner.market.yandex.ru/v2"
 
-    def __init__(self, token: str, campaign_id: str, business_id: Optional[str] = None):
-        self.token = token
+    def __init__(self, api_key: str, campaign_id: str, business_id: Optional[str] = None):
+        self.api_key = api_key
         self.campaign_id = campaign_id
         self.business_id = business_id
         self.session = requests.Session()
         self.session.headers.update({
-            "Authorization": f"Bearer {self.token}",
+            "Api-Key": self.api_key,
             "Content-Type": "application/json",
         })
 

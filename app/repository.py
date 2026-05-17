@@ -189,6 +189,27 @@ class PostgresRepository:
             )
             return self._row(cursor)
 
+    def get_product_by_sku(self, sku: str):
+        with self._connection() as (_, cursor):
+            cursor.execute(
+                """
+                SELECT
+                    p.id,
+                    p.sku,
+                    p.name,
+                    p.technical_specs,
+                    p.unit_price,
+                    COALESCE(ws.on_hand_qty, 0) AS on_hand_qty,
+                    COALESCE(ws.reserved_qty, 0) AS reserved_qty,
+                    COALESCE(ws.on_hand_qty, 0) - COALESCE(ws.reserved_qty, 0) AS available_qty
+                FROM products p
+                LEFT JOIN warehouse_stocks ws ON ws.product_id = p.id
+                WHERE p.sku = %s
+                """,
+                (sku,),
+            )
+            return self._row(cursor)
+
     def list_orders(self):
         with self._connection() as (_, cursor):
             cursor.execute(
@@ -234,36 +255,62 @@ class PostgresRepository:
                 (order_id,),
             )
             order = self._row(cursor)
-            if not order:
-                return None
+            return self._attach_order_details(order, cursor)
+
+    def get_order_by_number(self, order_number: str):
+        with self._connection() as (_, cursor):
             cursor.execute(
                 """
                 SELECT
-                    oi.id,
-                    oi.product_id,
-                    p.sku,
-                    p.name AS product_name,
-                    oi.quantity,
-                    oi.unit_price,
-                    oi.reserved_qty
-                FROM order_items oi
-                INNER JOIN products p ON p.id = oi.product_id
-                WHERE oi.order_id = %s
-                ORDER BY oi.id
+                    o.id,
+                    o.order_number,
+                    o.customer_name,
+                    o.customer_email,
+                    o.customer_phone,
+                    o.status,
+                    o.priority,
+                    o.notes,
+                    o.created_at,
+                    o.updated_at
+                FROM orders o
+                WHERE o.order_number = %s
                 """,
-                (order_id,),
+                (order_number,),
             )
-            order["items"] = [dict(row) for row in cursor.fetchall()]
-            cursor.execute(
-                """
-                SELECT id, order_id, assigned_to, status, priority, due_date, created_at, updated_at
-                FROM shipping_tasks
-                WHERE order_id = %s
-                """,
-                (order_id,),
-            )
-            order["shipping_task"] = self._row(cursor)
-            return order
+            order = self._row(cursor)
+            return self._attach_order_details(order, cursor)
+
+    def _attach_order_details(self, order, cursor):
+        if not order:
+            return None
+        cursor.execute(
+            """
+            SELECT
+                oi.id,
+                oi.product_id,
+                p.sku,
+                p.name AS product_name,
+                oi.quantity,
+                oi.unit_price,
+                oi.reserved_qty
+            FROM order_items oi
+            INNER JOIN products p ON p.id = oi.product_id
+            WHERE oi.order_id = %s
+            ORDER BY oi.id
+            """,
+            (order["id"],),
+        )
+        order["items"] = [dict(row) for row in cursor.fetchall()]
+        cursor.execute(
+            """
+            SELECT id, order_id, assigned_to, status, priority, due_date, created_at, updated_at
+            FROM shipping_tasks
+            WHERE order_id = %s
+            """,
+            (order["id"],),
+        )
+        order["shipping_task"] = self._row(cursor)
+        return order
 
     def create_order(self, payload: dict[str, Any], actor_id: int):
         self._validate_order_payload(payload)
@@ -671,6 +718,14 @@ class InMemoryRepository:
         row["available_qty"] = row["on_hand_qty"] - row["reserved_qty"]
         return row
 
+    def get_product_by_sku(self, sku: str):
+        for product in self.products.values():
+            if product["sku"] == sku:
+                row = deepcopy(product)
+                row["available_qty"] = row["on_hand_qty"] - row["reserved_qty"]
+                return row
+        return None
+
     def list_orders(self):
         orders = list(self.orders.values())
         return sorted(orders, key=lambda order: order["id"], reverse=True)
@@ -678,6 +733,12 @@ class InMemoryRepository:
     def get_order(self, order_id: int):
         order = self.orders.get(order_id)
         return deepcopy(order) if order else None
+
+    def get_order_by_number(self, order_number: str):
+        for order in self.orders.values():
+            if order["order_number"] == order_number:
+                return deepcopy(order)
+        return None
 
     def create_order(self, payload: dict[str, Any], actor_id: int):
         self._validate_order_payload(payload)

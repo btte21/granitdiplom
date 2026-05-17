@@ -96,23 +96,25 @@ def api_tasks():
 @roles_required("ADMIN")
 def api_yandex_sync():
     config = current_app.config
-    token = config.get("YANDEX_MARKET_TOKEN")
+    api_key = config.get("YANDEX_MARKET_API_KEY")
     campaign_id = config.get("YANDEX_MARKET_CAMPAIGN_ID")
     warehouse_id = config.get("YANDEX_MARKET_WAREHOUSE_ID", 1)
 
-    if not token or not campaign_id:
+    if not api_key or not campaign_id:
         return jsonify({"error": "API Яндекс Маркета не настроено"}), 400
 
-    client = YandexMarketClient(token=token, campaign_id=campaign_id)
+    client = YandexMarketClient(api_key=api_key, campaign_id=campaign_id)
     service = YandexMarketService(client=client, repository=get_repository())
 
     try:
         stocks_res = service.sync_stocks(warehouse_id=warehouse_id)
         prices_res = service.sync_prices()
+        orders_res = service.fetch_and_process_orders()
         return jsonify({
             "message": "Синхронизация завершена",
             "stocks_results": stocks_res,
-            "prices_results": prices_res
+            "prices_results": prices_res,
+            "orders_results": orders_res
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
