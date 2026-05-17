@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: granit_ural_ais
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./sql/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./sql/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "5005:5005"
+    environment:
+      - FLASK_SECRET_KEY=development-secret-key
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/granit_ural_ais
+      - APP_PORT=5005
+      - FLASK_DEBUG=1
+      # Yandex Market placeholders
+      - YANDEX_MARKET_TOKEN=your-token
+      - YANDEX_MARKET_CAMPAIGN_ID=your-campaign
+      - YANDEX_MARKET_BUSINESS_ID=your-business
+      - YANDEX_MARKET_WAREHOUSE_ID=1
+    depends_on:
+      db:
+        condition: service_healthy

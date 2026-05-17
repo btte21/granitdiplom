@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard | Granit-Ural AIS{% endblock %}
+{% block title %}Панель управления | Гранит-Урал АИС{% endblock %}
 
 {% block content %}
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end mb-4 gap-3">
     <div>
-        <h1 class="h2 mb-1">Distribution Dashboard</h1>
-        <p class="text-secondary mb-0">Monitor priorities, current reservations, and warehouse execution across the order pipeline.</p>
+        <h1 class="h2 mb-1">Панель управления распределением</h1>
+        <p class="text-secondary mb-0">Мониторинг приоритетов, текущих резервов и выполнения складских задач в цепочке заказов.</p>
     </div>
 </div>
 
@@ -14,7 +14,7 @@
     <div class="col-md-6 col-xl-3">
         <div class="card h-100 border-0 shadow-sm dashboard-card">
             <div class="card-body">
-                <div class="text-secondary small">Total Orders</div>
+                <div class="text-secondary small">Всего заказов</div>
                 <div class="display-6 fw-semibold">{{ summary.total_orders }}</div>
             </div>
         </div>
@@ -22,7 +22,7 @@
     <div class="col-md-6 col-xl-3">
         <div class="card h-100 border-0 shadow-sm dashboard-card">
             <div class="card-body">
-                <div class="text-secondary small">Reserved Orders</div>
+                <div class="text-secondary small">Зарезервировано</div>
                 <div class="display-6 fw-semibold">{{ summary.reserved_orders }}</div>
             </div>
         </div>
@@ -30,7 +30,7 @@
     <div class="col-md-6 col-xl-3">
         <div class="card h-100 border-0 shadow-sm dashboard-card">
             <div class="card-body">
-                <div class="text-secondary small">Ready to Ship</div>
+                <div class="text-secondary small">Готово к отгрузке</div>
                 <div class="display-6 fw-semibold">{{ summary.ready_to_ship_orders }}</div>
             </div>
         </div>
@@ -38,7 +38,7 @@
     <div class="col-md-6 col-xl-3">
         <div class="card h-100 border-0 shadow-sm dashboard-card">
             <div class="card-body">
-                <div class="text-secondary small">Low Stock SKUs</div>
+                <div class="text-secondary small">Мало на складе (SKU)</div>
                 <div class="display-6 fw-semibold">{{ summary.low_stock_items }}</div>
             </div>
         </div>
@@ -49,19 +49,19 @@
     <div class="col-xl-8">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
-                <h2 class="h5 mb-1">Shipping Queue</h2>
-                <p class="text-secondary small mb-0">Managers can tune priorities and assign tasks to warehouse operators.</p>
+                <h2 class="h5 mb-1">Очередь отгрузки</h2>
+                <p class="text-secondary small mb-0">Менеджеры могут изменять приоритеты и назначать задачи сотрудникам склада.</p>
             </div>
             <div class="card-body px-4 pb-4">
                 <div class="table-responsive">
                     <table class="table align-middle">
                         <thead>
                             <tr>
-                                <th>Order</th>
-                                <th>Customer</th>
-                                <th>Status</th>
-                                <th>Priority</th>
-                                <th>Assignee</th>
+                                <th>Заказ</th>
+                                <th>Клиент</th>
+                                <th>Статус</th>
+                                <th>Приоритет</th>
+                                <th>Исполнитель</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -69,7 +69,16 @@
                             <tr>
                                 <td>#{{ task.order_number }}</td>
                                 <td>{{ task.customer_name }}</td>
-                                <td><span class="badge text-bg-light">{{ task.status }}</span></td>
+                                <td>
+                                    <span class="badge text-bg-light">
+                                        {% if task.status == 'PENDING' %}В ОЖИДАНИИ
+                                        {% elif task.status == 'PICKING' %}СБОРКА
+                                        {% elif task.status == 'PACKED' %}УПАКОВАН
+                                        {% elif task.status == 'COMPLETED' %}ВЫПОЛНЕН
+                                        {% elif task.status == 'CANCELLED' %}ОТМЕНЕН
+                                        {% else %}{{ task.status }}{% endif %}
+                                    </span>
+                                </td>
                                 <td>
                                     {% if current_user.role in ('ADMIN', 'MANAGER') %}
                                     <form method="post" action="{{ url_for('ui.update_order_priority', order_id=task.order_id) }}" class="d-flex gap-2 align-items-center">
@@ -78,7 +87,7 @@
                                             <option value="{{ value }}" {% if value == task.priority %}selected{% endif %}>{{ value }}</option>
                                             {% endfor %}
                                         </select>
-                                        <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Ок</button>
                                     </form>
                                     {% else %}
                                     {{ task.priority }}
@@ -92,15 +101,15 @@
                                             <option value="{{ user.id }}" {% if user.id == task.assigned_to %}selected{% endif %}>{{ user.full_name }}</option>
                                             {% endfor %}
                                         </select>
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Assign</button>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Назначить</button>
                                     </form>
                                     {% else %}
-                                    {{ task.assigned_to_name or 'Unassigned' }}
+                                    {{ task.assigned_to_name or 'Не назначен' }}
                                     {% endif %}
                                 </td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="5" class="text-secondary">No shipping tasks yet.</td></tr>
+                            <tr><td colspan="5" class="text-secondary">Задач на отгрузку пока нет.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -112,8 +121,8 @@
     <div class="col-xl-4">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
-                <h2 class="h5 mb-1">Recent Orders</h2>
-                <p class="text-secondary small mb-0">Fast status progression for the active fulfillment backlog.</p>
+                <h2 class="h5 mb-1">Последние заказы</h2>
+                <p class="text-secondary small mb-0">Быстрое изменение статусов для активных заказов.</p>
             </div>
             <div class="card-body px-4 pb-4">
                 <div class="vstack gap-3">
@@ -124,29 +133,36 @@
                                 <div class="fw-semibold">#{{ order.order_number }}</div>
                                 <div class="small text-secondary">{{ order.customer_name }}</div>
                             </div>
-                            <span class="badge text-bg-primary-subtle text-primary-emphasis">{{ order.status }}</span>
+                            <span class="badge text-bg-primary-subtle text-primary-emphasis">
+                                {% if order.status == 'RESERVED' %}ЗАРЕЗЕРВИРОВАН
+                                {% elif order.status == 'PROCESSING' %}В ОБРАБОТКЕ
+                                {% elif order.status == 'READY_TO_SHIP' %}ГОТОВ К ОТГРУЗКЕ
+                                {% elif order.status == 'SHIPPED' %}ОТГРУЖЕН
+                                {% elif order.status == 'CANCELLED' %}ОТМЕНЕН
+                                {% else %}{{ order.status }}{% endif %}
+                            </span>
                         </div>
-                        <div class="small text-secondary mt-2">Priority {{ order.priority }}</div>
+                        <div class="small text-secondary mt-2">Приоритет {{ order.priority }}</div>
                         {% if order.status != 'SHIPPED' and order.status != 'CANCELLED' %}
                         <form method="post" action="{{ url_for('ui.update_order_status', order_id=order.id) }}" class="d-flex gap-2 mt-3">
                             <select class="form-select form-select-sm" name="status">
                                 {% if order.status == 'RESERVED' %}
-                                <option value="PROCESSING">PROCESSING</option>
-                                <option value="CANCELLED">CANCELLED</option>
+                                <option value="PROCESSING">В ОБРАБОТКЕ</option>
+                                <option value="CANCELLED">ОТМЕНЕН</option>
                                 {% elif order.status == 'PROCESSING' %}
-                                <option value="READY_TO_SHIP">READY_TO_SHIP</option>
-                                <option value="CANCELLED">CANCELLED</option>
+                                <option value="READY_TO_SHIP">ГОТОВ К ОТГРУЗКЕ</option>
+                                <option value="CANCELLED">ОТМЕНЕН</option>
                                 {% elif order.status == 'READY_TO_SHIP' %}
-                                <option value="SHIPPED">SHIPPED</option>
-                                <option value="CANCELLED">CANCELLED</option>
+                                <option value="SHIPPED">ОТГРУЖЕН</option>
+                                <option value="CANCELLED">ОТМЕНЕН</option>
                                 {% endif %}
                             </select>
-                            <button type="submit" class="btn btn-sm btn-primary">Update</button>
+                            <button type="submit" class="btn btn-sm btn-primary">Обновить</button>
                         </form>
                         {% endif %}
                     </div>
                     {% else %}
-                    <div class="text-secondary">No orders created yet.</div>
+                    <div class="text-secondary">Заказы еще не созданы.</div>
                     {% endfor %}
                 </div>
             </div>
@@ -154,4 +170,3 @@
     </div>
 </div>
 {% endblock %}
-

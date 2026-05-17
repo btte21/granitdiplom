@@ -1,33 +1,32 @@
 {% extends "base.html" %}
 
-{% block title %}Login | Granit-Ural AIS{% endblock %}
+{% block title %}Вход | Гранит-Урал АИС{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-5">
         <div class="card border-0 shadow-sm">
             <div class="card-body p-4 p-lg-5">
-                <h1 class="h3 mb-3">Sign in to Granit-Ural AIS</h1>
-                <p class="text-secondary">Use one of the seeded roles to access the order, stock, and shipping workflows.</p>
+                <h1 class="h3 mb-3">Вход в Гранит-Урал АИС</h1>
+                <p class="text-secondary">Используйте учетные данные одной из ролей для доступа к управлению заказами, остатками и отгрузками.</p>
                 <form method="post" class="vstack gap-3">
                     <div>
-                        <label class="form-label" for="email">Email</label>
+                        <label class="form-label" for="email">Эл. почта</label>
                         <input class="form-control" id="email" name="email" type="email" required>
                     </div>
                     <div>
-                        <label class="form-label" for="password">Password</label>
+                        <label class="form-label" for="password">Пароль</label>
                         <input class="form-control" id="password" name="password" type="password" required>
                     </div>
-                    <button type="submit" class="btn btn-primary">Login</button>
+                    <button type="submit" class="btn btn-primary">Войти</button>
                 </form>
                 <div class="mt-4 small text-secondary">
-                    <div><strong>Admin:</strong> admin@granit-ural.local / AdminPass123!</div>
-                    <div><strong>Manager:</strong> manager@granit-ural.local / ManagerPass123!</div>
-                    <div><strong>Warehouse:</strong> warehouse@granit-ural.local / WarehousePass123!</div>
+                    <div><strong>Админ:</strong> admin@granit-ural.local / AdminPass123!</div>
+                    <div><strong>Менеджер:</strong> manager@granit-ural.local / ManagerPass123!</div>
+                    <div><strong>Склад:</strong> warehouse@granit-ural.local / WarehousePass123!</div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
-

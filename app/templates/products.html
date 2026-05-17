@@ -1,12 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Products | Granit-Ural AIS{% endblock %}
+{% block title %}Товары | Гранит-Урал АИС{% endblock %}
 
 {% block content %}
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white border-0 pt-4 px-4">
-        <h1 class="h4 mb-1">Product and Warehouse Stock</h1>
-        <p class="text-secondary small mb-0">Real-time availability across the catalog with reserved balance visibility.</p>
+    <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h4 mb-1">Товары и складские остатки</h1>
+            <p class="text-secondary small mb-0">Актуальное наличие товаров в каталоге с учетом резервов.</p>
+        </div>
+        {% if current_user.role == 'ADMIN' %}
+        <button id="syncYandexBtn" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-arrow-repeat"></i> Синхронизировать с Яндекс Маркетом
+        </button>
+        {% endif %}
     </div>
     <div class="card-body px-4 pb-4">
         <div class="table-responsive">
@@ -14,11 +21,11 @@
                 <thead>
                     <tr>
                         <th>SKU</th>
-                        <th>Product</th>
-                        <th>Technical Specs</th>
-                        <th>On Hand</th>
-                        <th>Reserved</th>
-                        <th>Available</th>
+                        <th>Товар</th>
+                        <th>Тех. характеристики</th>
+                        <th>В наличии</th>
+                        <th>В резерве</th>
+                        <th>Доступно</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -36,12 +43,41 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="6" class="text-secondary">No products available.</td></tr>
+                    <tr><td colspan="6" class="text-secondary">Товары не найдены.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
-{% endblock %}
+{% if current_user.role == 'ADMIN' %}
+<script>
+document.getElementById('syncYandexBtn').addEventListener('click', async function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Синхронизация...';
 
+    try {
+        const response = await fetch('/api/yandex-market/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+        if (response.ok) {
+            alert('Успех: ' + data.message);
+        } else {
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    } catch (error) {
+        alert('Ошибка сети: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

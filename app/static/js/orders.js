@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const renderItems = () => {
         itemsInput.value = JSON.stringify(items);
         if (!items.length) {
-            itemsList.innerHTML = '<div class="empty-state">No items added yet.</div>';
+            itemsList.innerHTML = '<div class="empty-state">Товары еще не добавлены.</div>';
             return;
         }
 
@@ -24,9 +24,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="d-flex justify-content-between align-items-center border rounded-4 px-3 py-2">
                         <div>
                             <div class="fw-semibold">${item.name}</div>
-                            <div class="text-secondary">Product ID ${item.product_id} | Qty ${item.quantity}</div>
+                            <div class="text-secondary">ID товара ${item.product_id} | Кол-во ${item.quantity}</div>
                         </div>
-                        <button class="btn btn-sm btn-outline-danger" type="button" data-remove-index="${index}">Remove</button>
+                        <button class="btn btn-sm btn-outline-danger" type="button" data-remove-index="${index}">Удалить</button>
                     </div>
                 `
             )

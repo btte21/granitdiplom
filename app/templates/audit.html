@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}Audit | Granit-Ural AIS{% endblock %}
+{% block title %}Аудит | Гранит-Урал АИС{% endblock %}
 
 {% block content %}
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-0 pt-4 px-4">
-        <h1 class="h4 mb-1">Audit Trail</h1>
-        <p class="text-secondary small mb-0">System-level history for inventory, orders, and shipping updates.</p>
+        <h1 class="h4 mb-1">Журнал аудита</h1>
+        <p class="text-secondary small mb-0">История изменений инвентаризации, заказов и отгрузок на системном уровне.</p>
     </div>
     <div class="card-body px-4 pb-4">
         <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
                     <tr>
-                        <th>When</th>
-                        <th>Table</th>
-                        <th>Record</th>
-                        <th>Action</th>
-                        <th>User</th>
-                        <th>Details</th>
+                        <th>Когда</th>
+                        <th>Таблица</th>
+                        <th>ID записи</th>
+                        <th>Действие</th>
+                        <th>Пользователь</th>
+                        <th>Детали</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -28,11 +28,11 @@
                         <td>{{ log.table_name }}</td>
                         <td>{{ log.record_id }}</td>
                         <td>{{ log.action }}</td>
-                        <td>{{ log.changed_by_name or log.changed_by or 'System' }}</td>
+                        <td>{{ log.changed_by_name or log.changed_by or 'Система' }}</td>
                         <td><code>{{ log.details }}</code></td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="6" class="text-secondary">No audit records yet.</td></tr>
+                    <tr><td colspan="6" class="text-secondary">Записей аудита пока нет.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -40,4 +40,3 @@
     </div>
 </div>
 {% endblock %}
-

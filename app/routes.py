@@ -14,7 +14,7 @@ def _parse_order_form(form):
     try:
         items = json.loads(items_json)
     except json.JSONDecodeError as exc:
-        raise ValidationError("Order items must be valid JSON.") from exc
+        raise ValidationError("Товары заказа должны быть в формате JSON.") from exc
 
     normalized_items = []
     for item in items:
@@ -78,7 +78,7 @@ def create_order():
     try:
         payload = _parse_order_form(request.form)
         repo.create_order(payload, current_user()["id"])
-        flash("Order created and stock reserved successfully.", "success")
+        flash("Заказ успешно создан, товар зарезервирован.", "success")
     except (ValidationError, InsufficientStockError) as exc:
         flash(str(exc), "danger")
     return redirect(url_for("ui.orders"))
@@ -90,7 +90,7 @@ def update_order_status(order_id: int):
     repo = get_repository()
     try:
         repo.update_order_status(order_id, request.form.get("status", ""), current_user()["id"])
-        flash("Order status updated.", "success")
+        flash("Статус заказа обновлен.", "success")
     except (ValidationError, InvalidStatusTransitionError) as exc:
         flash(str(exc), "danger")
     return redirect(request.referrer or url_for("ui.dashboard"))
@@ -103,7 +103,7 @@ def update_order_priority(order_id: int):
     try:
         priority = int(request.form.get("priority", "3"))
         repo.update_order_priority(order_id, priority, current_user()["id"])
-        flash("Order priority updated.", "success")
+        flash("Приоритет заказа обновлен.", "success")
     except (ValidationError, ValueError) as exc:
         flash(str(exc), "danger")
     return redirect(request.referrer or url_for("ui.dashboard"))
@@ -116,7 +116,7 @@ def assign_task(task_id: int):
     try:
         assigned_to = int(request.form.get("assigned_to", "0"))
         repo.assign_shipping_task(task_id, assigned_to, current_user()["id"])
-        flash("Shipping task assigned.", "success")
+        flash("Складская задача назначена.", "success")
     except (ValidationError, ValueError) as exc:
         flash(str(exc), "danger")
     return redirect(request.referrer or url_for("ui.dashboard"))

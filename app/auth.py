@@ -23,7 +23,7 @@ def login():
             session["role"] = user["role"]
             next_url = request.args.get("next") or url_for("ui.dashboard")
             return redirect(next_url)
-        flash("Invalid credentials or inactive account.", "danger")
+        flash("Неверные учетные данные или неактивный аккаунт.", "danger")
     return render_template("login.html")
 
 

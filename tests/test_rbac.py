@@ -14,7 +14,7 @@ def login_as(client, email, password):
 def test_manager_can_access_order_dashboard(client):
     response = login_as(client, "manager@granit-ural.local", "ManagerPass123!")
     assert response.status_code == 200
-    assert b"Distribution Dashboard" in response.data
+    assert "Панель управления распределением".encode("utf-8") in response.data
 
 
 def test_warehouse_cannot_create_order(client):
@@ -42,7 +42,7 @@ def test_warehouse_can_access_warehouse_view_but_not_audit(client):
     audit_response = client.get("/audit")
 
     assert warehouse_response.status_code == 200
-    assert b"Warehouse Shipping Tasks" in warehouse_response.data
+    assert "Складские задачи по отгрузке".encode("utf-8") in warehouse_response.data
     assert audit_response.status_code == 403
 
 
@@ -59,5 +59,5 @@ def test_invalid_status_transition_is_rejected(repository):
         actor_id=2,
     )
 
-    with pytest.raises(InvalidStatusTransitionError, match="Cannot move order"):
+    with pytest.raises(InvalidStatusTransitionError, match="Невозможно сменить статус заказа"):
         repository.update_order_status(order["id"], "SHIPPED", actor_id=3)

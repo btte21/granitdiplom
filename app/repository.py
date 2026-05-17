@@ -79,10 +79,10 @@ class PostgresRepository:
     def _database_help_message(self):
         params = self._connection_kwargs()
         return (
-            "Could not connect to PostgreSQL. "
-            f"Target: {params['user']}@{params['host']}:{params['port']}/{params['dbname']}. "
-            "Check that PostgreSQL is running, the database exists, and your DB_USER/DB_PASSWORD "
-            "or DATABASE_URL values are correct in .env."
+            "Не удалось подключиться к PostgreSQL. "
+            f"Цель: {params['user']}@{params['host']}:{params['port']}/{params['dbname']}. "
+            "Проверьте, что PostgreSQL запущен, база данных существует, и значения DB_USER/DB_PASSWORD "
+            "или DATABASE_URL в файле .env указаны верно."
         )
 
     @contextmanager
@@ -313,11 +313,11 @@ class PostgresRepository:
                 )
                 stock = self._row(cursor)
                 if not stock:
-                    raise ValidationError(f"Product {item['product_id']} is not available in stock.")
+                    raise ValidationError(f"Товар с ID {item['product_id']} не найден на складе.")
                 available_qty = stock["on_hand_qty"] - stock["reserved_qty"]
                 if available_qty < item["quantity"]:
                     raise InsufficientStockError(
-                        f"Insufficient stock for product {item['product_id']}. Requested {item['quantity']}, available {available_qty}."
+                        f"Недостаточно товара на складе (ID {item['product_id']}). Запрошено {item['quantity']}, доступно {available_qty}."
                     )
 
                 cursor.execute(
@@ -384,7 +384,7 @@ class PostgresRepository:
             current_status = order["status"]
             if new_status not in ALLOWED_ORDER_TRANSITIONS.get(current_status, set()):
                 raise InvalidStatusTransitionError(
-                    f"Cannot move order {order_id} from {current_status} to {new_status}."
+                    f"Невозможно сменить статус заказа {order_id} с {current_status} на {new_status}."
                 )
 
             cursor.execute(
@@ -556,12 +556,12 @@ class PostgresRepository:
         required_fields = ("order_number", "customer_name", "customer_email", "customer_phone", "items")
         missing = [field for field in required_fields if not payload.get(field)]
         if missing:
-            raise ValidationError(f"Missing required fields: {', '.join(missing)}")
+            raise ValidationError(f"Отсутствуют обязательные поля: {', '.join(missing)}")
         if not isinstance(payload["items"], list) or not payload["items"]:
-            raise ValidationError("At least one order item is required.")
+            raise ValidationError("Необходимо добавить хотя бы один товар в заказ.")
         for item in payload["items"]:
             if int(item["quantity"]) <= 0:
-                raise ValidationError("Item quantity must be greater than zero.")
+                raise ValidationError("Количество товара должно быть больше нуля.")
 
 
 class InMemoryRepository:
@@ -689,11 +689,11 @@ class InMemoryRepository:
         for item in payload["items"]:
             product = self.products.get(item["product_id"])
             if not product:
-                raise ValidationError(f"Product {item['product_id']} not found.")
+                raise ValidationError(f"Товар с ID {item['product_id']} не найден.")
             available_qty = product["on_hand_qty"] - product["reserved_qty"]
             if available_qty < item["quantity"]:
                 raise InsufficientStockError(
-                    f"Insufficient stock for product {item['product_id']}. Requested {item['quantity']}, available {available_qty}."
+                    f"Недостаточно товара на складе (ID {item['product_id']}). Запрошено {item['quantity']}, доступно {available_qty}."
                 )
 
         for item in payload["items"]:
@@ -754,7 +754,7 @@ class InMemoryRepository:
         current_status = order["status"]
         if new_status not in ALLOWED_ORDER_TRANSITIONS.get(current_status, set()):
             raise InvalidStatusTransitionError(
-                f"Cannot move order {order_id} from {current_status} to {new_status}."
+                f"Невозможно сменить статус заказа {order_id} с {current_status} на {new_status}."
             )
         if new_status == "CANCELLED":
             for item in order["items"]:
@@ -832,12 +832,12 @@ class InMemoryRepository:
         required_fields = ("order_number", "customer_name", "customer_email", "customer_phone", "items")
         missing = [field for field in required_fields if not payload.get(field)]
         if missing:
-            raise ValidationError(f"Missing required fields: {', '.join(missing)}")
+            raise ValidationError(f"Отсутствуют обязательные поля: {', '.join(missing)}")
         if not isinstance(payload["items"], list) or not payload["items"]:
-            raise ValidationError("At least one order item is required.")
+            raise ValidationError("Необходимо добавить хотя бы один товар в заказ.")
         for item in payload["items"]:
             if int(item["quantity"]) <= 0:
-                raise ValidationError("Item quantity must be greater than zero.")
+                raise ValidationError("Количество товара должно быть больше нуля.")
 
     def _log(self, table_name: str, record_id: int, action: str, changed_by: int, details: dict[str, Any]):
         self.audit_logs.append(
