@@ -7,12 +7,17 @@
     <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
         <div>
             <h1 class="h4 mb-1">Товары и складские остатки</h1>
-            <p class="text-secondary small mb-0">Актуальное наличие товаров в каталоге с учетом резервов.</p>
+            <p class="text-secondary small mb-0">Актуальная локальная номенклатура, включая позиции и остатки, загруженные из Яндекс Маркета.</p>
         </div>
         {% if current_user.role == 'ADMIN' %}
-        <button id="syncYandexBtn" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-arrow-repeat"></i> Синхронизировать с Яндекс Маркетом
-        </button>
+        <div class="d-flex gap-2">
+            <button id="syncYandexProductsBtn" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-arrow-repeat"></i> Загрузить товары
+            </button>
+            <button id="syncYandexStocksBtn" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-box-seam"></i> Загрузить остатки
+            </button>
+        </div>
         {% endif %}
     </div>
     <div class="card-body px-4 pb-4">
@@ -52,14 +57,14 @@
 </div>
 {% if current_user.role == 'ADMIN' %}
 <script>
-document.getElementById('syncYandexBtn').addEventListener('click', async function() {
-    const btn = this;
+async function runYandexSync(buttonId, url, loadingText, buildDetails) {
+    const btn = document.getElementById(buttonId);
     const originalText = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Синхронизация...';
+    btn.innerHTML = loadingText;
 
     try {
-        const response = await fetch('/api/yandex-market/sync', {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -67,14 +72,9 @@ document.getElementById('syncYandexBtn').addEventListener('click', async functio
         });
         const data = await response.json();
         if (response.ok) {
-            let details = data.message;
-            if (data.orders_results) {
-                details += `\nЗаказов обработано: ${data.orders_results.fetched}\nСоздано: ${data.orders_results.created}\nПропущено: ${data.orders_results.skipped}`;
-                if (data.orders_results.errors > 0) {
-                    details += `\nОшибок: ${data.orders_results.errors}`;
-                }
-            }
-            alert('Успех: ' + details);
+            const details = buildDetails(data);
+            alert('Успех: ' + (data.message || 'Номенклатура загружена.') + details);
+            window.location.reload();
         } else {
             alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
         }
@@ -84,6 +84,34 @@ document.getElementById('syncYandexBtn').addEventListener('click', async functio
         btn.disabled = false;
         btn.innerHTML = originalText;
     }
+}
+
+document.getElementById('syncYandexProductsBtn').addEventListener('click', async function() {
+    await runYandexSync(
+        'syncYandexProductsBtn',
+        '/api/yandex-market/products/sync',
+        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Загрузка товаров...',
+        function(data) {
+            if (!data.products_results) {
+                return '';
+            }
+            return `\nИмпортировано: ${data.products_results.imported}\nСоздано: ${data.products_results.created}\nОбновлено: ${data.products_results.updated}`;
+        }
+    );
+});
+
+document.getElementById('syncYandexStocksBtn').addEventListener('click', async function() {
+    await runYandexSync(
+        'syncYandexStocksBtn',
+        '/api/yandex-market/stocks/sync',
+        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Загрузка остатков...',
+        function(data) {
+            if (!data.stocks_results) {
+                return '';
+            }
+            return `\nСтрок остатков: ${data.stocks_results.fetched}\nSKU обработано: ${data.stocks_results.sku_count}\nНовых товаров: ${data.stocks_results.products_created}\nНовых остатков: ${data.stocks_results.stocks_created}\nОбновлено остатков: ${data.stocks_results.stocks_updated}`;
+        }
+    );
 });
 </script>
 {% endif %}

@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, current_app, jsonify, request
+
 from .security import current_user, get_repository, login_required, roles_required
 from .services import InsufficientStockError, InvalidStatusTransitionError, ValidationError
 from .yandex_market_client import YandexMarketClient
@@ -9,6 +10,18 @@ from .yandex_market_service import YandexMarketService
 
 
 api_bp = Blueprint("api", __name__)
+
+
+def _is_missing_market_config(value):
+    normalized = str(value or "").strip().lower()
+    return normalized in {
+        "",
+        "your-api-key",
+        "your-campaign",
+        "your-campaign-id",
+        "your-business",
+        "your-business-id",
+    }
 
 
 def _json_ready(value):
@@ -21,6 +34,23 @@ def _json_ready(value):
     if isinstance(value, (datetime, date)):
         return value.isoformat()
     return value
+
+
+def _build_yandex_market_service():
+    config = current_app.config
+    api_key = config.get("YANDEX_MARKET_API_KEY")
+    campaign_id = config.get("YANDEX_MARKET_CAMPAIGN_ID")
+    business_id = config.get("YANDEX_MARKET_BUSINESS_ID")
+
+    if _is_missing_market_config(api_key) or _is_missing_market_config(campaign_id):
+        return None, jsonify({"error": "API Яндекс Маркета не настроено: укажите YANDEX_MARKET_API_KEY и YANDEX_MARKET_CAMPAIGN_ID."}), 400
+
+    client = YandexMarketClient(
+        api_key=api_key,
+        campaign_id=campaign_id,
+        business_id=None if _is_missing_market_config(business_id) else business_id,
+    )
+    return YandexMarketService(client=client, repository=get_repository()), None, None
 
 
 @api_bp.get("/products")
@@ -84,10 +114,10 @@ def api_update_order_priority(order_id: int):
 def api_tasks():
     return jsonify(
         _json_ready(
-        {
-            "summary": get_repository().get_dashboard_summary(),
-            "tasks": get_repository().list_shipping_tasks(),
-        }
+            {
+                "summary": get_repository().get_dashboard_summary(),
+                "tasks": get_repository().list_shipping_tasks(),
+            }
         )
     )
 
@@ -95,26 +125,79 @@ def api_tasks():
 @api_bp.post("/yandex-market/sync")
 @roles_required("ADMIN")
 def api_yandex_sync():
-    config = current_app.config
-    api_key = config.get("YANDEX_MARKET_API_KEY")
-    campaign_id = config.get("YANDEX_MARKET_CAMPAIGN_ID")
-    warehouse_id = config.get("YANDEX_MARKET_WAREHOUSE_ID", 1)
-
-    if not api_key or not campaign_id:
-        return jsonify({"error": "API Яндекс Маркета не настроено"}), 400
-
-    client = YandexMarketClient(api_key=api_key, campaign_id=campaign_id)
-    service = YandexMarketService(client=client, repository=get_repository())
+    service, error_response, status_code = _build_yandex_market_service()
+    if error_response:
+        return error_response, status_code
 
     try:
-        stocks_res = service.sync_stocks(warehouse_id=warehouse_id)
-        prices_res = service.sync_prices()
+        products_res = service.import_nomenclature()
         orders_res = service.fetch_and_process_orders()
-        return jsonify({
-            "message": "Синхронизация завершена",
-            "stocks_results": stocks_res,
-            "prices_results": prices_res,
-            "orders_results": orders_res
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify(
+            {
+                "message": "Синхронизация завершена",
+                "products_results": products_res,
+                "orders_results": orders_res,
+            }
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@api_bp.post("/yandex-market/products/sync")
+@roles_required("ADMIN")
+def api_yandex_sync_products():
+    service, error_response, status_code = _build_yandex_market_service()
+    if error_response:
+        return error_response, status_code
+
+    try:
+        products_res = service.import_nomenclature()
+        return jsonify(
+            {
+                "message": "Номенклатура из Яндекс Маркета загружена.",
+                "products_results": products_res,
+            }
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@api_bp.post("/yandex-market/stocks/sync")
+@roles_required("ADMIN")
+def api_yandex_sync_stocks():
+    service, error_response, status_code = _build_yandex_market_service()
+    if error_response:
+        return error_response, status_code
+
+    try:
+        warehouse_id = current_app.config.get("YANDEX_MARKET_WAREHOUSE_ID")
+        stocks_res = service.import_stocks(stocks_warehouse_id=warehouse_id)
+        return jsonify(
+            {
+                "message": "Остатки из Яндекс Маркета загружены.",
+                "stocks_results": stocks_res,
+            }
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@api_bp.post("/yandex-market/orders/sync")
+@roles_required("ADMIN")
+def api_yandex_sync_orders():
+    service, error_response, status_code = _build_yandex_market_service()
+    if error_response:
+        return error_response, status_code
+
+    try:
+        products_res = service.import_nomenclature()
+        orders_res = service.fetch_and_process_orders()
+        return jsonify(
+            {
+                "message": "Заказы из Яндекс Маркета загружены.",
+                "products_results": products_res,
+                "orders_results": orders_res,
+            }
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500

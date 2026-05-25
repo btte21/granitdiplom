@@ -1,6 +1,8 @@
 services:
   db:
     image: postgres:15
+    env_file:
+      - .env1
     environment:
       POSTGRES_DB: granit_ural_ais
       POSTGRES_USER: postgres
@@ -16,18 +18,19 @@ services:
 
   app:
     build: .
+    env_file:
+      - .env1
     ports:
       - "5005:5005"
     environment:
       - FLASK_SECRET_KEY=development-secret-key
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/granit_ural_ais
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=granit_ural_ais
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
       - APP_PORT=5005
       - FLASK_DEBUG=1
-      # Yandex Market placeholders
-      - YANDEX_MARKET_API_KEY=your-api-key
-      - YANDEX_MARKET_CAMPAIGN_ID=your-campaign
-      - YANDEX_MARKET_BUSINESS_ID=your-business
-      - YANDEX_MARKET_WAREHOUSE_ID=1
     depends_on:
       db:
         condition: service_healthy

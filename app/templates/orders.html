@@ -9,7 +9,7 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 pt-4 px-4">
                 <h1 class="h4 mb-1">Новый заказ</h1>
-                <p class="text-secondary small mb-0">Создайте заказ и мгновенно зарезервируйте товар, чтобы избежать перепродажи.</p>
+                <p class="text-secondary small mb-0">Создайте локальный заказ вручную или загрузите заказы из Яндекс Маркета в реестр справа.</p>
             </div>
             <div class="card-body px-4 pb-4">
                 <form method="post" action="{{ url_for('ui.create_order') }}" class="vstack gap-3" id="order-form">
@@ -90,9 +90,16 @@
 
     <div class="col-xl-7">
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-0 pt-4 px-4">
-                <h2 class="h4 mb-1">Реестр заказов</h2>
-                <p class="text-secondary small mb-0">Текущие статусы заказов, приоритеты и обязательства перед клиентами.</p>
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h4 mb-1">Реестр заказов</h2>
+                    <p class="text-secondary small mb-0">Здесь отображаются локальные заказы и импортированные заказы Яндекс Маркета.</p>
+                </div>
+                {% if current_user.role == 'ADMIN' %}
+                <button id="syncYandexOrdersBtn" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-arrow-repeat"></i> Загрузить заказы из Яндекс Маркета
+                </button>
+                {% endif %}
             </div>
             <div class="card-body px-4 pb-4">
                 <div class="table-responsive">
@@ -111,16 +118,16 @@
                             <tr>
                                 <td>#{{ order.order_number }}</td>
                                 <td>{{ order.customer_name }}</td>
-                        <td>
-                            <span class="badge text-bg-primary-subtle text-primary-emphasis">
-                                {% if order.status == 'RESERVED' %}ЗАРЕЗЕРВИРОВАН
-                                {% elif order.status == 'PROCESSING' %}В ОБРАБОТКЕ
-                                {% elif order.status == 'READY_TO_SHIP' %}ГОТОВ К ОТГРУЗКЕ
-                                {% elif order.status == 'SHIPPED' %}ОТГРУЖЕН
-                                {% elif order.status == 'CANCELLED' %}ОТМЕНЕН
-                                {% else %}{{ order.status }}{% endif %}
-                            </span>
-                        </td>
+                                <td>
+                                    <span class="badge text-bg-primary-subtle text-primary-emphasis">
+                                        {% if order.status == 'RESERVED' %}ЗАРЕЗЕРВИРОВАН
+                                        {% elif order.status == 'PROCESSING' %}В ОБРАБОТКЕ
+                                        {% elif order.status == 'READY_TO_SHIP' %}ГОТОВ К ОТГРУЗКЕ
+                                        {% elif order.status == 'SHIPPED' %}ОТГРУЖЕН
+                                        {% elif order.status == 'CANCELLED' %}ОТМЕНЕН
+                                        {% else %}{{ order.status }}{% endif %}
+                                    </span>
+                                </td>
                                 <td>{{ order.priority }}</td>
                                 <td>{{ order.created_at }}</td>
                             </tr>
@@ -134,4 +141,39 @@
         </div>
     </div>
 </div>
+{% if current_user.role == 'ADMIN' %}
+<script>
+document.getElementById('syncYandexOrdersBtn').addEventListener('click', async function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Загрузка...';
+
+    try {
+        const response = await fetch('/api/yandex-market/orders/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+        if (response.ok) {
+            let details = data.message || 'Заказы загружены.';
+            if (data.orders_results) {
+                details += `\nПолучено: ${data.orders_results.fetched}\nСоздано: ${data.orders_results.created}\nПропущено: ${data.orders_results.skipped}\nОшибок: ${data.orders_results.errors}`;
+            }
+            alert('Успех: ' + details);
+            window.location.reload();
+        } else {
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    } catch (error) {
+        alert('Ошибка сети: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

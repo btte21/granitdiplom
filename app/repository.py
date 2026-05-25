@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import Json, RealDictCursor
 
 from .passwords import hash_password, verify_password
 from .services import DatabaseConnectionError, InsufficientStockError, InvalidStatusTransitionError, ValidationError
@@ -82,7 +82,7 @@ class PostgresRepository:
             "Не удалось подключиться к PostgreSQL. "
             f"Цель: {params['user']}@{params['host']}:{params['port']}/{params['dbname']}. "
             "Проверьте, что PostgreSQL запущен, база данных существует, и значения DB_USER/DB_PASSWORD "
-            "или DATABASE_URL в файле .env указаны верно."
+            "или DATABASE_URL в файле .env1 указаны верно."
         )
 
     @contextmanager
@@ -209,6 +209,100 @@ class PostgresRepository:
                 (sku,),
             )
             return self._row(cursor)
+
+    def upsert_market_products(self, products: list[dict[str, Any]]):
+        created = 0
+        updated = 0
+
+        with self._connection(actor_id=1) as (_, cursor):
+            for product in products:
+                cursor.execute("SELECT id FROM products WHERE sku = %s", (product["sku"],))
+                existing = cursor.fetchone()
+
+                cursor.execute(
+                    """
+                    INSERT INTO products (sku, name, technical_specs, unit_price, is_active)
+                    VALUES (%s, %s, %s, %s, TRUE)
+                    ON CONFLICT (sku) DO UPDATE
+                    SET
+                        name = EXCLUDED.name,
+                        technical_specs = EXCLUDED.technical_specs,
+                        unit_price = EXCLUDED.unit_price,
+                        is_active = TRUE
+                    RETURNING id
+                    """,
+                    (
+                        product["sku"],
+                        product["name"],
+                        Json(product.get("technical_specs", {})),
+                        product.get("unit_price", 0),
+                    ),
+                )
+                product_row = self._row(cursor)
+                cursor.execute(
+                    """
+                    INSERT INTO warehouse_stocks (product_id, on_hand_qty, reserved_qty)
+                    VALUES (%s, 0, 0)
+                    ON CONFLICT (product_id) DO NOTHING
+                    """,
+                    (product_row["id"],),
+                )
+
+                if existing:
+                    updated += 1
+                else:
+                    created += 1
+
+        return {"created": created, "updated": updated}
+
+    def upsert_market_stocks(self, stock_rows: list[dict[str, Any]]):
+        created = 0
+        updated = 0
+
+        with self._connection(actor_id=1) as (_, cursor):
+            for stock_row in stock_rows:
+                cursor.execute(
+                    """
+                    SELECT p.id, ws.product_id
+                    FROM products p
+                    LEFT JOIN warehouse_stocks ws ON ws.product_id = p.id
+                    WHERE p.sku = %s
+                    """,
+                    (stock_row["sku"],),
+                )
+                current = self._row(cursor)
+                if not current:
+                    continue
+
+                if current["product_id"] is None:
+                    cursor.execute(
+                        """
+                        INSERT INTO warehouse_stocks (product_id, on_hand_qty, reserved_qty)
+                        VALUES (%s, %s, %s)
+                        """,
+                        (
+                            current["id"],
+                            stock_row["on_hand_qty"],
+                            stock_row["reserved_qty"],
+                        ),
+                    )
+                    created += 1
+                else:
+                    cursor.execute(
+                        """
+                        UPDATE warehouse_stocks
+                        SET on_hand_qty = %s, reserved_qty = %s
+                        WHERE product_id = %s
+                        """,
+                        (
+                            stock_row["on_hand_qty"],
+                            stock_row["reserved_qty"],
+                            current["id"],
+                        ),
+                    )
+                    updated += 1
+
+        return {"created": created, "updated": updated}
 
     def list_orders(self):
         with self._connection() as (_, cursor):
@@ -386,6 +480,92 @@ class PostgresRepository:
                         item["quantity"],
                         item.get("unit_price", stock["unit_price"]),
                         item["quantity"],
+                    ),
+                )
+
+            cursor.execute(
+                """
+                INSERT INTO shipping_tasks (order_id, status, priority, due_date)
+                VALUES (%s, 'PENDING', %s, CURRENT_DATE + INTERVAL '1 day')
+                RETURNING id, order_id, assigned_to, status, priority, due_date, created_at, updated_at
+                """,
+                (order["id"], order["priority"]),
+            )
+            order["shipping_task"] = self._row(cursor)
+            cursor.execute(
+                """
+                SELECT
+                    oi.id,
+                    oi.product_id,
+                    p.sku,
+                    p.name AS product_name,
+                    oi.quantity,
+                    oi.unit_price,
+                    oi.reserved_qty
+                FROM order_items oi
+                INNER JOIN products p ON p.id = oi.product_id
+                WHERE oi.order_id = %s
+                ORDER BY oi.id
+                """,
+                (order["id"],),
+            )
+            order["items"] = [dict(row) for row in cursor.fetchall()]
+            return order
+
+    def create_external_order(self, payload: dict[str, Any], actor_id: int):
+        self._validate_order_payload(payload)
+        payload = {**payload, "items": normalize_order_items(payload["items"])}
+        with self._connection(actor_id=actor_id) as (_, cursor):
+            cursor.execute(
+                """
+                INSERT INTO orders (
+                    order_number,
+                    customer_name,
+                    customer_email,
+                    customer_phone,
+                    status,
+                    priority,
+                    notes,
+                    created_by
+                )
+                VALUES (%s, %s, %s, %s, 'RESERVED', %s, %s, %s)
+                RETURNING id, order_number, status, priority, customer_name, customer_email, customer_phone, notes, created_at, updated_at
+                """,
+                (
+                    payload["order_number"],
+                    payload["customer_name"],
+                    payload["customer_email"],
+                    payload["customer_phone"],
+                    payload.get("priority", 3),
+                    payload.get("notes"),
+                    actor_id,
+                ),
+            )
+            order = self._row(cursor)
+
+            for item in payload["items"]:
+                cursor.execute(
+                    """
+                    SELECT id, unit_price
+                    FROM products
+                    WHERE id = %s
+                    """,
+                    (item["product_id"],),
+                )
+                product = self._row(cursor)
+                if not product:
+                    raise ValidationError(f"Товар с ID {item['product_id']} не найден.")
+
+                cursor.execute(
+                    """
+                    INSERT INTO order_items (order_id, product_id, quantity, unit_price, reserved_qty)
+                    VALUES (%s, %s, %s, %s, 0)
+                    """,
+                    (
+                        order["id"],
+                        item["product_id"],
+                        item["quantity"],
+                        item.get("unit_price", product["unit_price"]),
                     ),
                 )
 
@@ -726,6 +906,63 @@ class InMemoryRepository:
                 return row
         return None
 
+    def upsert_market_products(self, products: list[dict[str, Any]]):
+        created = 0
+        updated = 0
+
+        for product in products:
+            existing_product_id = None
+            for product_id, current in self.products.items():
+                if current["sku"] == product["sku"]:
+                    existing_product_id = product_id
+                    break
+
+            if existing_product_id is None:
+                next_id = max(self.products.keys(), default=0) + 1
+                self.products[next_id] = {
+                    "id": next_id,
+                    "sku": product["sku"],
+                    "name": product["name"],
+                    "technical_specs": product.get("technical_specs", {}),
+                    "unit_price": Decimal(str(product.get("unit_price", 0))),
+                    "on_hand_qty": 0,
+                    "reserved_qty": 0,
+                }
+                created += 1
+            else:
+                current = self.products[existing_product_id]
+                current["name"] = product["name"]
+                current["technical_specs"] = product.get("technical_specs", {})
+                current["unit_price"] = Decimal(str(product.get("unit_price", 0)))
+                updated += 1
+
+        return {"created": created, "updated": updated}
+
+    def upsert_market_stocks(self, stock_rows: list[dict[str, Any]]):
+        created = 0
+        updated = 0
+
+        for stock_row in stock_rows:
+            product = None
+            for current in self.products.values():
+                if current["sku"] == stock_row["sku"]:
+                    product = current
+                    break
+
+            if not product:
+                continue
+
+            had_stock = "on_hand_qty" in product and "reserved_qty" in product
+            product["on_hand_qty"] = stock_row["on_hand_qty"]
+            product["reserved_qty"] = stock_row["reserved_qty"]
+
+            if had_stock:
+                updated += 1
+            else:
+                created += 1
+
+        return {"created": created, "updated": updated}
+
     def list_orders(self):
         orders = list(self.orders.values())
         return sorted(orders, key=lambda order: order["id"], reverse=True)
@@ -768,6 +1005,67 @@ class InMemoryRepository:
                 "quantity": item["quantity"],
                 "unit_price": item.get("unit_price", product["unit_price"]),
                 "reserved_qty": item["quantity"],
+            }
+            self._order_item_id += 1
+            items.append(order_item)
+            self.order_items[order_item["id"]] = order_item
+
+        task = {
+            "id": self._task_id,
+            "order_id": order_id,
+            "assigned_to": None,
+            "assigned_to_name": None,
+            "status": "PENDING",
+            "priority": payload.get("priority", 3),
+            "due_date": now.date().isoformat(),
+            "created_at": now.isoformat(sep=" "),
+            "updated_at": now.isoformat(sep=" "),
+            "order_number": payload["order_number"],
+            "customer_name": payload["customer_name"],
+        }
+        self._task_id += 1
+        self.shipping_tasks[task["id"]] = task
+
+        order = {
+            "id": order_id,
+            "order_number": payload["order_number"],
+            "customer_name": payload["customer_name"],
+            "customer_email": payload["customer_email"],
+            "customer_phone": payload["customer_phone"],
+            "status": "RESERVED",
+            "priority": payload.get("priority", 3),
+            "notes": payload.get("notes", ""),
+            "created_at": now.isoformat(sep=" "),
+            "updated_at": now.isoformat(sep=" "),
+            "items": items,
+            "shipping_task": task,
+        }
+        order["total_amount"] = sum(item["quantity"] * item["unit_price"] for item in items)
+        self.orders[order_id] = order
+        self._log("orders", order_id, "INSERT", actor_id, {"status": "RESERVED", "order_number": payload["order_number"]})
+        return deepcopy(order)
+
+    def create_external_order(self, payload: dict[str, Any], actor_id: int):
+        self._validate_order_payload(payload)
+        payload = {**payload, "items": normalize_order_items(payload["items"])}
+        order_id = self._order_id
+        self._order_id += 1
+        now = utcnow()
+        items = []
+
+        for item in payload["items"]:
+            product = self.products.get(item["product_id"])
+            if not product:
+                raise ValidationError(f"Товар с ID {item['product_id']} не найден.")
+
+            order_item = {
+                "id": self._order_item_id,
+                "product_id": item["product_id"],
+                "sku": product["sku"],
+                "product_name": product["name"],
+                "quantity": item["quantity"],
+                "unit_price": item.get("unit_price", product["unit_price"]),
+                "reserved_qty": 0,
             }
             self._order_item_id += 1
             items.append(order_item)
